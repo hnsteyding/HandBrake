@@ -1,6 +1,6 @@
 /* common.c
 
-   Copyright (c) 2003-2024 HandBrake Team
+   Copyright (c) 2003-2025 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -1842,12 +1842,18 @@ const char* const* hb_video_encoder_get_presets(int encoder)
 
         case HB_VCODEC_SVT_AV1:
         case HB_VCODEC_SVT_AV1_10BIT:
-            return av1_svt_preset_names;
+            return hb_av1_svt_preset_names;
 
         default:
             return NULL;
     }
 }
+
+static const char * const hb_empty_tune_names[] =
+{
+    "none", NULL
+};
+
 
 const char* const* hb_video_encoder_get_tunes(int encoder)
 {
@@ -1860,22 +1866,22 @@ const char* const* hb_video_encoder_get_tunes(int encoder)
     {
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X264_10BIT:
-            return x264_tune_names;
+            return hb_x264_tune_names;
 
 #if HB_PROJECT_FEATURE_X265
         case HB_VCODEC_X265_8BIT:
         case HB_VCODEC_X265_10BIT:
         case HB_VCODEC_X265_12BIT:
         case HB_VCODEC_X265_16BIT:
-            return x265_tune_names;
+            return hb_x265_tune_names;
 #endif
 
         case HB_VCODEC_SVT_AV1:
         case HB_VCODEC_SVT_AV1_10BIT:
-            return av1_svt_tune_names;
+            return hb_av1_svt_tune_names;
 
         default:
-            return NULL;
+            return hb_empty_tune_names;
     }
 }
 
@@ -1930,7 +1936,7 @@ const char* const* hb_video_encoder_get_profiles(int encoder)
 
         case HB_VCODEC_SVT_AV1:
         case HB_VCODEC_SVT_AV1_10BIT:
-            return av1_svt_profile_names;
+            return hb_av1_svt_profile_names;
 
         default:
             return NULL;

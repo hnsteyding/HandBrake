@@ -397,8 +397,6 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
 {
     NSMutableArray<NSString *> *temp = [NSMutableArray array];
 
-    [temp addObject:@"none"];
-
     const char * const *tunes = hb_video_encoder_get_tunes(self.encoder);
 
     for (int i = 0; tunes != NULL && tunes[i] != NULL; i++)
@@ -552,7 +550,7 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
     decodeBool(_multiPass);
     decodeBool(_turboMultiPass);
 
-    decodeInteger(_frameRateMode); if (_passthruHDRDynamicMetadata < HBVideoHDRDynamicMetadataPassthruOff || _passthruHDRDynamicMetadata > HBVideoHDRDynamicMetadataPassthruAll) { goto fail; }
+    decodeInteger(_passthruHDRDynamicMetadata); if (_passthruHDRDynamicMetadata < HBVideoHDRDynamicMetadataPassthruOff || _passthruHDRDynamicMetadata > HBVideoHDRDynamicMetadataPassthruAll) { goto fail; }
 
     decodeObjectOrFail(_preset, NSString);
     decodeObjectOrFail(_tune, NSString);
