@@ -17,6 +17,7 @@
 #include "handbrake/lang.h"
 #include "handbrake/extradata.h"
 #include "libbluray/bluray.h"
+#include "libavutil/parseutils.h"
 
 #define min(a, b) a < b ? a : b
 #define HB_MAX_PROBE_SIZE (1*1024*1024)
@@ -5925,6 +5926,51 @@ static void add_ffmpeg_attachment( hb_title_t *title, hb_stream_t *stream, int i
     hb_list_add(title->list_attachment, attachment);
 }
 
+static void add_ffmpeg_coverart(hb_title_t *title, hb_stream_t *stream, int id)
+{
+    int type = HB_ART_UNDEFINED;
+    AVStream *st = stream->ffmpeg_ic->streams[id];
+    AVCodecParameters *codecpar = st->codecpar;
+
+    switch (codecpar->codec_id)
+    {
+        case AV_CODEC_ID_PNG:
+            type = HB_ART_PNG;
+            break;
+        case AV_CODEC_ID_MJPEG:
+            type = HB_ART_JPEG;
+            break;
+        default:
+            break;
+    }
+
+    if (type != HB_ART_UNDEFINED)
+    {
+        hb_metadata_add_coverart(title->metadata,
+                                 st->attached_pic.data,
+                                 st->attached_pic.size,
+                                 type);
+    }
+}
+
+static void ffmpeg_decdate(const char *hb_key, const char *av_key,
+                          AVDictionary *m, hb_title_t *title)
+{
+    int64_t parsed_timestamp;
+    AVDictionaryEntry *tag = NULL;
+    if ((tag = av_dict_get(m, av_key, NULL, 0)) &&
+        av_parse_time(&parsed_timestamp, tag->value, 0) >= 0)
+    {
+        struct tm dt = {0};
+        if (av_small_strptime(tag->value, "%Y-%m-%dT%H:%M:%S", &dt))
+        {
+            char buf[64];
+            strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S+0000", &dt);
+            hb_update_meta_dict(title->metadata->dict, hb_key, buf);
+        }
+    }
+}
+
 static int ffmpeg_decmetadata( AVDictionary *m, hb_title_t *title )
 {
     int result = 0;
@@ -5939,6 +5985,13 @@ static int ffmpeg_decmetadata( AVDictionary *m, hb_title_t *title )
             hb_update_meta_dict(title->metadata->dict, hb_key, tag->value);
         }
     }
+
+    if (av_dict_get(m, "com.android.version", NULL, 0) &&
+        hb_dict_get(title->metadata->dict, "ReleaseDate") == NULL)
+    {
+        ffmpeg_decdate("ReleaseDate", "creation_time", m, title);
+    }
+
     return result;
 }
 
@@ -6088,6 +6141,12 @@ static hb_title_t *ffmpeg_title_scan( hb_stream_t *stream, hb_title_t *title )
         else if (st->codecpar->codec_type == AVMEDIA_TYPE_ATTACHMENT)
         {
             add_ffmpeg_attachment( title, stream, i );
+        }
+        else if (st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO &&
+                 st->disposition & AV_DISPOSITION_ATTACHED_PIC &&
+                 (st->disposition & AV_DISPOSITION_TIMED_THUMBNAILS) == 0)
+        {
+            add_ffmpeg_coverart(title, stream, i);
         }
     }
     find_ffmpeg_fallback_audio(title);
