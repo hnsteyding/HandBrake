@@ -40,6 +40,8 @@ ghb_deps = [
   dependency('libavformat'),
   dependency('libavutil'),
   dependency('libbluray'),
+  dependency('libdvdcss'),
+  dependency('libudfread'),
   dependency('libcpuinfo'),
   dependency('libswresample'),
   dependency('libswscale'),
