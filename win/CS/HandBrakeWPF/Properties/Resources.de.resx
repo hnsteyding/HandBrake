@@ -2945,4 +2945,13 @@ Um mehrere gleichzeitige Encodierungen zu ermöglichen, aktivieren Sie die "Proz
   <data name="OptionsViewModel_PortableMode" type="System.Resources.ResXNullRef, System.Windows.Forms">
     <value />
   </data>
+  <data name="LogLevel_Minimised" xml:space="preserve">
+    <value>Mini Log</value>
+  </data>
+  <data name="LogLevel_Standard" xml:space="preserve">
+    <value>Standard Log</value>
+  </data>
+  <data name="LogLevel_Extended" xml:space="preserve">
+    <value>Großes Log</value>
+  </data>
 </root>
