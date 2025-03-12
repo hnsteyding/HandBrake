@@ -873,17 +873,8 @@ namespace HandBrakeWPF.ViewModels
                 this.NotifyOfPropertyChange(() => this.DisableLibdvdNav);
             }
         }
-
-        public BindingList<int> LogVerbosityOptions
-        {
-            get => this.logVerbosityOptions;
-
-            set
-            {
-                this.logVerbosityOptions = value;
-                this.NotifyOfPropertyChange(() => this.LogVerbosityOptions);
-            }
-        }
+		
+		public BindingList<LogLevel> LogVerbosityOptions { get; } = new BindingList<LogLevel>(EnumHelper<LogLevel>.GetEnumList().ToList());
 
         public long MinLength
         {
