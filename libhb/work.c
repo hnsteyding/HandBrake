@@ -1490,13 +1490,6 @@ static void sanitize_filter_list_pre(hb_job_t *job, hb_geometry_t src_geo)
             }
         }
     }
-
-#if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
-    if (hb_qsv_is_enabled(job))
-    {
-        hb_qsv_sanitize_filter_list(job);
-    }
-#endif
 }
 
 static enum AVPixelFormat match_pix_fmt(enum AVPixelFormat pix_fmt,
@@ -1730,6 +1723,15 @@ static void sanitize_dynamic_hdr_metadata_passthru(hb_job_t *job)
         job->passthru_dynamic_hdr_metadata &= ~HB_HDR_DYNAMIC_METADATA_DOVI;
 #endif
     }
+
+#if HB_PROJECT_FEATURE_QSV
+    // QSV decoder does not propagate
+    // the dynamic hdr side data
+    if (job->passthru_dynamic_hdr_metadata)
+    {
+        job->qsv.decode = 0;
+    }
+#endif
 }
 
 /**
@@ -1812,6 +1814,8 @@ static void do_job(hb_job_t *job)
         job->hw_pix_fmt = hb_get_best_hw_pix_fmt(job);
         job->input_pix_fmt = hb_get_best_pix_fmt(job);
 
+        sanitize_dynamic_hdr_metadata_passthru(job);
+
         // Init hwaccel context if needed
         if (hb_hwaccel_decode_is_enabled(job))
         {
@@ -1821,7 +1825,6 @@ static void do_job(hb_job_t *job)
                                    job);
         }
 
-        sanitize_dynamic_hdr_metadata_passthru(job);
         sanitize_filter_list_post(job);
 
         memset(&init, 0, sizeof(init));
@@ -1840,12 +1843,7 @@ static void do_job(hb_job_t *job)
                             (job->dovi.dv_profile == 5 ||
                              (job->dovi.dv_profile == 10 && job->dovi.dv_bl_signal_compatibility_id == 0)) ?
                             title->color_range : AVCOL_RANGE_MPEG;
-#if HB_PROJECT_FEATURE_QSV
-        if (hb_qsv_full_path_is_enabled(job))
-        {
-            init.color_range = (job->qsv.ctx->out_range == AVCOL_RANGE_UNSPECIFIED) ? title->color_range : job->qsv.ctx->out_range;
-        }
-#endif
+
         init.chroma_location = title->chroma_location;
         init.geometry = title->geometry;
         memset(init.crop, 0, sizeof(int[4]));
