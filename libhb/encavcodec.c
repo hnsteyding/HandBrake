@@ -489,7 +489,7 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
             if (job->vbitrate == pv->qsv_data.param.rc.vbv_max_bitrate)
             {
                 char maxrate[7];
-                snprintf(maxrate, 7, "%d", context->bit_rate);
+                snprintf(maxrate, 7, "%d", (int)context->bit_rate);
                 av_dict_set( &av_opts, "maxrate", maxrate, 0 );
             }
         }
@@ -699,13 +699,7 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
     if (hb_hwaccel_is_full_hardware_pipeline_enabled(pv->job))
     {
         context->hw_device_ctx = av_buffer_ref(pv->job->hw_device_ctx);
-#if HB_PROJECT_FEATURE_QSV
-        if (!hb_qsv_is_ffmpeg_supported_codec(job->vcodec))
-#endif
-        {
-            hb_hwaccel_hwframes_ctx_init(context, job);
-        }
-        context->pix_fmt = job->hw_pix_fmt;
+        hb_hwaccel_hwframes_ctx_init(context, job->hw_pix_fmt, job->output_pix_fmt);
     }
     else
     {
@@ -931,17 +925,6 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         }
         free(filename);
     }
-
-#if HB_PROJECT_FEATURE_QSV
-    if (hb_hwaccel_is_full_hardware_pipeline_enabled(pv->job) &&
-            hb_qsv_decode_is_enabled(job))
-    {
-        pv->context = context;
-        pv->qsv_data.codec = codec;
-        pv->qsv_data.av_opts = av_opts;
-        return 0;
-    }
-#endif
 
     if (hb_avcodec_open(context, codec, &av_opts, HB_FFMPEG_THREADS_AUTO))
     {
@@ -1307,50 +1290,6 @@ int encavcodecWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
         hb_error("encavcodec: codec context is uninitialized");
         return HB_WORK_DONE;
     }
-
-#if HB_PROJECT_FEATURE_QSV
-    // postponed encoder initialization, reused code from encavcodecInit()
-    if (hb_hwaccel_is_full_hardware_pipeline_enabled(pv->job) &&
-        hb_qsv_decode_is_enabled(pv->job) && pv->context->hw_frames_ctx == NULL && pv->job->qsv.ctx->hb_ffmpeg_qsv_hw_frames_ctx != NULL)
-    {
-        // use the same hw frames context as for decoder or filter graph hw frames context
-        pv->context->hw_frames_ctx = pv->job->qsv.ctx->hb_ffmpeg_qsv_hw_frames_ctx;
-        int open_ret = 0;
-        if ((open_ret = hb_avcodec_open(pv->context, pv->qsv_data.codec, &pv->qsv_data.av_opts, HB_FFMPEG_THREADS_AUTO)))
-        {
-            hb_log( "encavcodecWork: avcodec_open failed: %s", av_err2str(open_ret) );
-            return HB_WORK_ERROR;
-        }
-
-        /*
-        * Reload colorimetry settings in case custom
-        * values were set in the encoder_options string.
-        */
-        pv->job->color_prim_override     = pv->context->color_primaries;
-        pv->job->color_transfer_override = pv->context->color_trc;
-        pv->job->color_matrix_override   = pv->context->colorspace;
-
-        // avcodec_open populates the opts dictionary with the
-        // things it didn't recognize.
-        AVDictionaryEntry *t = NULL;
-        while( ( t = av_dict_get( pv->qsv_data.av_opts, "", t, AV_DICT_IGNORE_SUFFIX ) ) )
-        {
-            hb_log( "encavcodecWork: Unknown avcodec option %s", t->key );
-        }
-        
-        pv->job->areBframes = 0;
-        if (pv->context->has_b_frames > 0)
-        {
-            pv->job->areBframes = pv->context->has_b_frames;
-        }
-
-        if (pv->context->extradata != NULL)
-        {
-            hb_set_extradata(w->extradata, pv->context->extradata, pv->context->extradata_size);
-        }
-        av_dict_free(&pv->qsv_data.av_opts);
-    }
-#endif
 
     hb_buffer_list_clear(&list);
     if (in->s.flags & HB_BUF_FLAG_EOF)
