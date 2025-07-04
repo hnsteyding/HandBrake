@@ -12,8 +12,11 @@ namespace HandBrakeWPF.Utilities
     using System;
     using System.Net;
     using System.Net.Http;
+    using System.Printing;
     using System.Text;
     using System.Threading.Tasks;
+
+    using HandBrake.App.Core.Utilities;
 
     using HandBrakeWPF.Instance.Model;
 
@@ -32,7 +35,9 @@ namespace HandBrakeWPF.Utilities
                 throw new InvalidOperationException("No Post Values Found.");
             }
 
-            using (HttpClient client = new HttpClient() { Timeout = TimeSpan.FromSeconds(20) })
+            HttpClient client = BuildHttpClient();
+
+            using (client)
             {
                 HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, this.serverUrl + urlPath);
                 if (!string.IsNullOrEmpty(this.base64Token))
@@ -59,7 +64,9 @@ namespace HandBrakeWPF.Utilities
 
         public async Task<ServerResponse> MakeHttpGetRequest(string urlPath)
         {
-            using (HttpClient client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) })
+            HttpClient client = BuildHttpClient();
+
+            using (client)
             {
                 HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, this.serverUrl + urlPath);
                 if (!string.IsNullOrEmpty(this.base64Token))
@@ -82,6 +89,26 @@ namespace HandBrakeWPF.Utilities
             }
 
             return null;
+        }
+
+        private HttpClient BuildHttpClient()
+        {
+            HttpClient client;
+            if (Portable.IsSystemProxyDisabled())
+            {
+                var handler = new HttpClientHandler
+                              {
+                                  UseProxy = false // Ignore system proxy settings
+                              };
+
+                client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(20) };
+            }
+            else
+            {
+                client = new HttpClient() { Timeout = TimeSpan.FromSeconds(20) };
+            }
+
+            return client;
         }
     }
 }
