@@ -211,7 +211,7 @@ static int      qsv_async_depth    = -1;
 static int      qsv_adapter        = -1;
 static int      qsv_decode         = -1;
 #endif
-static int      hw_decode          = -1;
+static int      hw_decode          = 0;
 static int      keep_duplicate_titles = 0;
 static int      hdr_dynamic_metadata_disable = 0;
 static char *   hdr_dynamic_metadata  = NULL;
@@ -3281,7 +3281,7 @@ static int ParseOptions( int argc, char ** argv )
                     {
                         hw_decode = 0;
                     }
-                    if (hw_decode)
+                    if (hw_decode > 0)
                     {
                         hw_decode |= HB_DECODE_SUPPORT_FORCE_HW;
                     }
@@ -4463,12 +4463,12 @@ static hb_dict_t * PreparePreset(const char *preset_name)
 #if HB_PROJECT_FEATURE_QSV
     if (qsv_async_depth >= 0)
     {
-        hb_dict_set(preset, "VideoQSVAsyncDepth",
+        hb_dict_set(preset, "VideoAsyncDepth",
                         hb_value_int(qsv_async_depth));
     }
     if (qsv_adapter >= 0)
     {
-        hb_dict_set(preset, "VideoQSVAdapterIndex",
+        hb_dict_set(preset, "VideoAdapterIndex",
                         hb_value_int(qsv_adapter));
     }
     if (qsv_decode != -1)

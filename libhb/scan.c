@@ -295,6 +295,14 @@ static void ScanFunc( void * _data )
         /* Decode previews */
         /* this will also detect more AC3 / DTS information */
         npreviews = DecodePreviews( data, title, 1 );
+        if (npreviews == 0 && data->hw_decode)
+        {
+            // Try without the hardware decoder
+            // Some hwaccel implementations don't automatically
+            // fall back to the software encoder
+            data->hw_decode = 0;
+            npreviews = DecodePreviews( data, title, 1 );
+        }
         if (npreviews < 2)
         {
             // Try harder to get some valid frames
@@ -707,22 +715,23 @@ static int DecodePreviews( hb_scan_t * data, hb_title_t * title, int flush )
 
     int hw_decode = 0;
 
-    if (data->hw_decode == HB_DECODE_SUPPORT_NVDEC &&
+    if (data->hw_decode & HB_DECODE_SUPPORT_NVDEC &&
         hb_hwaccel_available(title->video_codec_param, "cuda"))
     {
         hw_decode = HB_DECODE_SUPPORT_NVDEC;
     }
-    else if (data->hw_decode == HB_DECODE_SUPPORT_VIDEOTOOLBOX &&
+    else if (data->hw_decode & HB_DECODE_SUPPORT_VIDEOTOOLBOX &&
              hb_hwaccel_available(title->video_codec_param, "videotoolbox"))
     {
         hw_decode = HB_DECODE_SUPPORT_VIDEOTOOLBOX;
     }
-    else if (data->hw_decode == HB_DECODE_SUPPORT_QSV &&
-             hb_hwaccel_available(title->video_codec_param, "qsv"))
-    {
-        hw_decode = HB_DECODE_SUPPORT_QSV;
-    }
-    else if (data->hw_decode == HB_DECODE_SUPPORT_MF &&
+    // TODO: re-enable when it will demux hdr dynamic side data
+    //else if (data->hw_decode & HB_DECODE_SUPPORT_QSV &&
+    //         hb_hwaccel_available(title->video_codec_param, "qsv"))
+    //{
+    //    hw_decode = HB_DECODE_SUPPORT_QSV;
+    //}
+    else if (data->hw_decode & HB_DECODE_SUPPORT_MF &&
              hb_hwaccel_available(title->video_codec_param, "d3d11va"))
     {
         hw_decode = HB_DECODE_SUPPORT_MF;
@@ -731,7 +740,7 @@ static int DecodePreviews( hb_scan_t * data, hb_title_t * title, int flush )
     void *hw_device_ctx = NULL;
     if (hw_decode)
     {
-        hb_hwaccel_hw_ctx_init(title->video_codec_param, hw_decode, &hw_device_ctx, NULL);
+        hb_hwaccel_hw_ctx_init(title->video_codec_param, hw_decode, -1, &hw_device_ctx);
     }
 
     hb_work_object_t *vid_decoder = hb_get_work(data->h, title->video_codec);
