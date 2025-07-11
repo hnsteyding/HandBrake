@@ -218,7 +218,8 @@ hb_work_object_t* hb_audio_decoder(hb_handle_t *h, int codec)
     return w;
 }
 
-hb_work_object_t* hb_video_decoder(hb_handle_t *h, int vcodec, int param, void *hw_device_ctx)
+hb_work_object_t* hb_video_decoder(hb_handle_t *h, int vcodec, int param,
+                                   void *hw_device_ctx, hb_hwaccel_t *hw_accel)
 {
     hb_work_object_t * w;
 
@@ -230,6 +231,7 @@ hb_work_object_t* hb_video_decoder(hb_handle_t *h, int vcodec, int param, void *
     }
     w->codec_param = param;
     w->hw_device_ctx = hw_device_ctx;
+    w->hw_accel = hw_accel;
 
     return w;
 }
@@ -499,14 +501,14 @@ void hb_display_job_info(hb_job_t *job)
 
     hb_log(" * video track");
 
-    if (hb_hwaccel_decode_is_enabled(job))
+    if (job->hw_accel)
     {
         hb_log("   + decoder: %s %s %d-bit (%s, %s)",
-               hb_hwaccel_get_name(job->hw_decode),
+               job->hw_accel->name,
                avcodec_get_name(title->video_codec_param),
                hb_get_bit_depth(job->input_pix_fmt),
                av_get_pix_fmt_name(job->input_pix_fmt),
-               av_get_pix_fmt_name(job->hw_pix_fmt));
+               job->hw_pix_fmt != AV_PIX_FMT_NONE ? av_get_pix_fmt_name(job->hw_pix_fmt) : "sw");
     }
     else
     {
@@ -1712,6 +1714,10 @@ static void sanitize_dynamic_hdr_metadata_passthru(hb_job_t *job)
                                           pad_top, pad_bottom, pad_left, pad_right);
         hb_add_filter(job, filter, settings);
         free(settings);
+
+        job->color_range = job->passthru_dynamic_hdr_metadata & HB_HDR_DYNAMIC_METADATA_DOVI &&
+                          (job->dovi.dv_profile == 5 || (job->dovi.dv_profile == 10 && job->dovi.dv_bl_signal_compatibility_id == 0)) ?
+                           AVCOL_RANGE_JPEG : job->color_range;
 #else
         hb_log("work: libdovi not available, disabling Dolby Vision");
         job->passthru_dynamic_hdr_metadata &= ~HB_HDR_DYNAMIC_METADATA_DOVI;
@@ -1723,7 +1729,7 @@ static void sanitize_dynamic_hdr_metadata_passthru(hb_job_t *job)
     // the dynamic hdr side data
     if (job->passthru_dynamic_hdr_metadata)
     {
-        job->hw_decode &= ~HB_DECODE_SUPPORT_QSV;
+        job->hw_decode &= ~HB_DECODE_QSV;
     }
 #endif
 }
@@ -1782,11 +1788,7 @@ static void do_job(hb_job_t *job)
     {
         job->hw_decode = 0;
     }
-    if (job->hw_decode & HB_DECODE_SUPPORT_MF)
-    {
-        job->hw_decode |= HB_DECODE_SUPPORT_FORCE_HW;
-    }
-    else if (job->hw_decode & HB_DECODE_SUPPORT_QSV)
+    if (job->hw_decode & HB_DECODE_QSV)
     {
         #if HB_PROJECT_FEATURE_QSV
         hb_qsv_setup_job(job);
@@ -1811,18 +1813,32 @@ static void do_job(hb_job_t *job)
         sanitize_filter_list_pre(job, title->geometry);
         sanitize_dynamic_hdr_metadata_passthru(job);
 
-        // Select the optimal pixel formats for the pipeline
-        job->hw_pix_fmt = hb_get_best_hw_pix_fmt(job);
-        job->input_pix_fmt = hb_get_best_pix_fmt(job);
+        job->hw_pix_fmt = AV_PIX_FMT_NONE;
+
+        // Initialize the hardware acceleration if possible
+        hb_hwaccel_t *hwaccel = hb_get_hwaccel(job->hw_decode);
+        if (hb_hwaccel_can_use_full_hw_pipeline(hwaccel,
+                                                job->list_filter,
+                                                job->vcodec))
+        {
+            job->hw_accel = hwaccel;
+            job->hw_pix_fmt = hwaccel->hw_pix_fmt;
+        }
+        else if (job->hw_decode & HB_DECODE_FORCE_HW)
+        {
+            job->hw_accel = hwaccel;
+        }
 
         // Init hwaccel context if needed
-        if (hb_hwaccel_decode_is_enabled(job))
+        if (job->hw_accel)
         {
-            hb_hwaccel_hw_ctx_init(job->title->video_codec_param,
-                                   job->hw_decode,
-                                   job->hw_device_index,
-                                   &job->hw_device_ctx);
+            hb_hwaccel_hw_device_ctx_init(job->hw_accel->type,
+                                          job->hw_device_index,
+                                         &job->hw_device_ctx);
         }
+
+        // Select the optimal pixel formats for the pipeline
+        job->input_pix_fmt = hb_get_best_pix_fmt(job);
 
         sanitize_filter_list_post(job);
 
@@ -1832,18 +1848,11 @@ static void do_job(hb_job_t *job)
         init.job = job;
         init.pix_fmt = job->input_pix_fmt;
         init.hw_pix_fmt = job->hw_pix_fmt;
-
-        init.color_prim = title->color_prim;
-        init.color_transfer = title->color_transfer;
-        init.color_matrix = title->color_matrix;
-        // Dolby Vision profile 5 requires full range
-        // TODO: find a better way to handle this
-        init.color_range = job->passthru_dynamic_hdr_metadata & HB_HDR_DYNAMIC_METADATA_DOVI &&
-                            (job->dovi.dv_profile == 5 ||
-                             (job->dovi.dv_profile == 10 && job->dovi.dv_bl_signal_compatibility_id == 0)) ?
-                            title->color_range : AVCOL_RANGE_MPEG;
-
-        init.chroma_location = title->chroma_location;
+        init.color_prim      = job->color_prim;
+        init.color_transfer  = job->color_transfer;
+        init.color_matrix    = job->color_matrix;
+        init.color_range     = job->color_range != AVCOL_RANGE_UNSPECIFIED ? job->color_range : title->color_range;
+        init.chroma_location = job->chroma_location;
         init.geometry = title->geometry;
         memset(init.crop, 0, sizeof(int[4]));
         init.vrate = job->vrate;
@@ -2026,7 +2035,8 @@ static void do_job(hb_job_t *job)
     }
 
     // Video decoder
-    w = hb_video_decoder(job->h, title->video_codec, title->video_codec_param, job->hw_device_ctx);
+    w = hb_video_decoder(job->h, title->video_codec, title->video_codec_param,
+                         job->hw_device_ctx, job->hw_accel);
     if (w == NULL)
     {
         *job->done_error = HB_ERROR_WRONG_INPUT;
@@ -2292,7 +2302,7 @@ cleanup:
     }
 
     hb_buffer_pool_free();
-    hb_hwaccel_hw_ctx_close(&job->hw_device_ctx);
+    hb_hwaccel_hw_device_ctx_close(&job->hw_device_ctx);
 }
 
 static inline void copy_chapter( hb_buffer_t * dst, hb_buffer_t * src )
