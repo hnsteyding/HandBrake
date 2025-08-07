@@ -43,6 +43,10 @@ Download available from Microsoft:
 - SubRip/UTF-8 subtitles are now passed through to MKV without conversion to SSA
 - Fixed a crash that could happen when burning bitmap subtitles
 
+#### Filters
+
+- Fixed a crash that could happen when using the Chroma Smooth filter (#7033)
+
 #### Third-party libraries
 
 - Updated libraries
@@ -68,9 +72,12 @@ Download available from Microsoft:
 - Fixed a crash that could happen when removing items from queue
 - Fixed audio bitrates list validation (#6997)
 - Built-in presets for unavailable hardware encoders are now hidden
+- Removed orphaned, no longer maintained locales or locales without active translators (af, cs, da, he, hr, ka, no, pl, pt, ro, ru, si, sk, th, tr, uk_UA, zh_TW). Removed locales are welcome back as soon as the locales are updated.
+- Updated existing and maintained locales.
 
 ### Mac
 
+- Added support for the VideoToolbox AV1 hardware decoder
 - Added a Metal accelerated Render Sub filter
 - Added a contextual menu to the presets popover
 - Updated Auto Naming Preferences to add "{angle}" as a filename generation option (#6086)
@@ -79,6 +86,7 @@ Download available from Microsoft:
 - Fixed queue jobs not being reloaded properly when the source is an .iso file
 - Fixed "Same as source" destination option, it didn't work properly in some case
 - Fixed reloading jobs from the queue when the source is a .iso file
+- Updated existing and maintained locales
 
 ### Windows
 
@@ -92,6 +100,8 @@ Download available from Microsoft:
 - Added new translations
   - Galician (Galego)
   - Hungarian (Magyar)
+- Removed orphaned, no longer maintained locales or locales without active translators (cs-CZ). Removed locales are welcome back as soon as the locales are updated.
+- Updated existing and maintained locales.
 
 
 ## HandBrake 1.9.2

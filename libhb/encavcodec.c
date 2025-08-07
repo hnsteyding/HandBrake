@@ -703,6 +703,12 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
     {
         context->hw_device_ctx = av_buffer_ref(pv->job->hw_device_ctx);
         hb_hwaccel_hwframes_ctx_init(context, job->output_pix_fmt, job->hw_pix_fmt);
+
+        if (context->hw_device_ctx == NULL)
+        {
+            ret = 1;
+            goto done;
+        }
     }
     else
     {
@@ -711,8 +717,13 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         {
             hb_hwaccel_hw_device_ctx_init(AV_HWDEVICE_TYPE_QSV,
                                           job->hw_device_index,
-                                         &job->hw_device_ctx);
-            context->hw_device_ctx = av_buffer_ref(job->hw_device_ctx);
+                                          (void **)&context->hw_device_ctx);
+
+            if (context->hw_device_ctx == NULL)
+            {
+                ret = 1;
+                goto done;
+            }
         }
 #endif
         context->pix_fmt = job->output_pix_fmt;
@@ -888,11 +899,12 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         }
         else
         {
-            int    size;
+            long   size;
             char * log;
 
             pv->file = hb_fopen(filename, "rb");
-            if (!pv->file) {
+            if (!pv->file)
+            {
                 if (strerror_r(errno, reason, 79) != 0)
                     strcpy(reason, "unknown -- strerror_r() failed");
 
@@ -904,6 +916,17 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
             fseek( pv->file, 0, SEEK_END );
             size = ftell( pv->file );
             fseek( pv->file, 0, SEEK_SET );
+
+            if (size == -1)
+            {
+                hb_error( "encavcodecInit: Failed to read %s", filename);
+                free(filename);
+                ret = 1;
+                fclose( pv->file );
+                pv->file = NULL;
+                goto done;
+            }
+
             log = malloc( size + 1 );
             log[size] = '\0';
             if (size > 0 &&
@@ -1367,21 +1390,10 @@ static int apply_encoder_options(hb_job_t *job, AVCodecContext *context, AVDicti
     return 0;
 }
 
-static int apply_vce_preset(AVDictionary **av_opts, const char *preset)
+static int apply_vce_preset(AVDictionary **av_opts, int vcodec, const char *preset)
 {
-    if (!strcasecmp(preset, "speed"))
-    {
-        av_dict_set(av_opts, "quality", "10", 0);
-    }
-    else if (!strcasecmp(preset, "balanced"))
-    {
-        av_dict_set(av_opts, "quality", "5", 0);
-    }
-    else if (!strcasecmp(preset, "quality"))
-    {
-        av_dict_set(av_opts, "quality", "0", 0);
-    }
-
+    int quality = hb_map_vce_preset_name(vcodec, preset);
+    av_dict_set_int(av_opts, "quality", quality, 0);
     return 0;
 }
 
@@ -1487,7 +1499,7 @@ static int apply_encoder_preset(int vcodec, AVCodecContext *context,
         case HB_VCODEC_FFMPEG_VCE_H265:
         case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
         case HB_VCODEC_FFMPEG_VCE_AV1:
-            return apply_vce_preset(av_opts, preset);
+            return apply_vce_preset(av_opts, vcodec, preset);
 
 #if HB_PROJECT_FEATURE_NVENC
         case HB_VCODEC_FFMPEG_NVENC_H264:
@@ -1648,8 +1660,10 @@ const char* const* hb_av_preset_get_names(int encoder)
         case HB_VCODEC_FFMPEG_VCE_H264:
         case HB_VCODEC_FFMPEG_VCE_H265:
         case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
-        case HB_VCODEC_FFMPEG_VCE_AV1:
             return hb_vce_preset_names;
+
+        case HB_VCODEC_FFMPEG_VCE_AV1:
+            return hb_vce_av1_preset_names;
 
         case HB_VCODEC_FFMPEG_NVENC_H264:
         case HB_VCODEC_FFMPEG_NVENC_H265:

@@ -11,34 +11,20 @@
 #include "handbrake/handbrake.h"
 #include "handbrake/qsv_common.h"
 
-static int hwframe_init(const hb_job_t *job, AVFrame **frame)
+static hb_buffer_t * upload(void *hw_frames_ctx, hb_buffer_t **buf_in)
 {
-    AVBufferRef *hw_frames_ctx = NULL;
-    AVBufferRef *hw_device_ctx = job->hw_device_ctx;
-
-    if (!hw_device_ctx || !frame)
-    {
-        hb_error("hwaccel: failed to initialize hw frame");
-        return 1;
-    }
-
-    *frame = av_frame_alloc();
-    hw_frames_ctx = hb_hwaccel_init_hw_frames_ctx(hw_device_ctx,
-                                                  job->input_pix_fmt, job->hw_pix_fmt,
-                                                  job->width, job->height, 0);
-    return av_hwframe_get_buffer(hw_frames_ctx, *frame, 0);
-}
-
-static hb_buffer_t * upload(const hb_job_t *job, hb_buffer_t **buf_in)
-{
+    int ret = 0;
     AVFrame frame = {{0}};
-    AVFrame *hw_frame = NULL;
+    AVFrame *hw_frame = av_frame_alloc();
 
-    int ret;
+    if (hw_frame == NULL)
+    {
+        goto fail;
+    }
 
     hb_video_buffer_to_avframe(&frame, buf_in);
 
-    ret = hwframe_init(job, &hw_frame);
+    ret = av_hwframe_get_buffer(hw_frames_ctx, hw_frame, 0);
     if (ret < 0)
     {
         goto fail;
@@ -238,16 +224,11 @@ int hb_hwaccel_hw_device_ctx_init(enum AVHWDeviceType device_type, int device_in
     AVBufferRef *ctx;
     AVDictionary *dict = NULL;
 
-    if (device_index >= 0)
+    if (device_index > -1)
     {
         char device[32];
         snprintf(device, 32, "%u", device_index);
-
-        err = av_dict_set(&dict, "child_device", device, 0);
-        if (err < 0)
-        {
-            return err;
-        }
+        av_dict_set(&dict, "child_device", device, 0);
     }
 
 #if defined(_WIN32) || defined(__MINGW32__)
@@ -257,7 +238,7 @@ int hb_hwaccel_hw_device_ctx_init(enum AVHWDeviceType device_type, int device_in
     }
 #endif
 
-    if ((err = av_hwdevice_ctx_create(&ctx, device_type, NULL, NULL, 0)) < 0)
+    if ((err = av_hwdevice_ctx_create(&ctx, device_type, NULL, dict, 0)) < 0)
     {
         hb_error("hwaccel: failed to create hwdevice");
     }
