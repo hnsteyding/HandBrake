@@ -10,7 +10,34 @@ Download available from Microsoft:
 - [For x64 (AMD or Intel CPUs)](https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe)
 - [For Arm64 (Qualcomm or other)](https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-arm64.exe)
 
+## HandBrake 1.10.1
+
+### All platforms
+
+#### Video
+
+- Fixed a visual corruption issue that could happen when encoding with x265
+- Fixed SVT-AV1 presets 10, 9, and 8 not working properly with SSIM tune
+
+### Linux
+
+- Fixed preview audio when running the flatpak build
+- Fixed Vorbis passthru checkbox not being applied when the title changes
+
+### Mac
+
+- Improved custom border color validation
+
+### Windows
+
+- Added new translation
+  - Romanian (Română)
+- Fixed arm64 build
+- Fixed audio track name generation
+
 ## HandBrake 1.10.0
+
+### All platforms
 
 #### General
 
