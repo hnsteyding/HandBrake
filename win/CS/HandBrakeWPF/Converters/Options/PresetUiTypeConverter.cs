@@ -1,22 +1,19 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="IPresetManagerViewModel.cs" company="HandBrake Project (http://handbrake.fr)">
+// <copyright file="ThemeSettingConverter.cs" company="HandBrake Project (http://handbrake.fr)">
 //   This file is part of the HandBrake source code - It may be used under the terms of the GNU General Public License.
 // </copyright>
 // <summary>
-//   Defines the IPresetManagerViewModel type.
+//   Defines the ThemeSettingConverter type.
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
-namespace HandBrakeWPF.ViewModels.Interfaces
+namespace HandBrakeWPF.Converters.Options
 {
-    using System;
+    using System.Windows.Data;
 
-    using HandBrakeWPF.Services.Presets.Model;
+    using HandBrakeWPF.Model;
 
-    public interface IPresetManagerViewModel : IViewModelBase
+    public class PresetUiTypeConverter : ResourceConverterBase<PresetUiType>, IValueConverter
     {
-        bool IsOpen { get; set; }
-
-        void SetupWindow(Action<Preset> callback);
     }
 }
