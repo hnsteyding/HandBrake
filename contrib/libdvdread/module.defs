@@ -1,4 +1,6 @@
-$(eval $(call import.MODULE.defs,LIBDVDREAD,libdvdread))
+__deps__ := DVDCSS
+
+$(eval $(call import.MODULE.defs,LIBDVDREAD,libdvdread,$(__deps__)))
 $(eval $(call import.CONTRIB.defs,LIBDVDREAD))
 
 LIBDVDREAD.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/libdvdread-7.0.1.tar.bz2
@@ -22,6 +24,10 @@ LIBDVDREAD.CONFIGURE.env         =
 
 ifeq (1-mingw,$(HOST.cross)-$(HOST.system))
      LIBDVDREAD.CONFIGURE.extra += -Ddlfcn=builtin
+endif
+
+ifneq (darwin,$(HOST.system))
+     LIBDVDREAD.CONFIGURE.extra += -Dlibdvdcss=enabled
 endif
 
 LIBDVDREAD.GCC.args.extra += $(LIBDVDREAD.GCC.args.O.$(LIBDVDREAD.GCC.O))

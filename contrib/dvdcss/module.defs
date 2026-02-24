@@ -1,0 +1,30 @@
+$(eval $(call import.MODULE.defs,DVDCSS,dvdcss))
+$(eval $(call import.CONTRIB.defs,DVDCSS))
+
+DVDCSS.FETCH.url     = https://code.videolan.org/videolan/libdvdcss/-/archive/1.5.0/libdvdcss-1.5.0.tar.bz2
+DVDCSS.FETCH.sha256  = f204a9d8ac8a8414095d556373e5af9b95bb7cc72bf1467d936a48c961e8c474
+
+DVDCSS.build_dir             = build/
+DVDCSS.CONFIGURE.exe         = $(MESON.exe) setup
+DVDCSS.prefix                = $(call fn.ABSOLUTE,$(DVDCSS.prefix/))contrib/
+DVDCSS.CONFIGURE.deps        =
+DVDCSS.CONFIGURE.shared      =
+DVDCSS.CONFIGURE.host        =
+DVDCSS.CONFIGURE.build       =
+DVDCSS.CONFIGURE.static      = -Ddefault_library=static
+DVDCSS.CONFIGURE.extra       = --libdir=$(call fn.ABSOLUTE,$(DVDCSS.prefix/))contrib/lib/ \
+                               -Dc_args="-I$(call fn.ABSOLUTE,$(CONTRIB.build/)include) $(call fn.ARGS,DVDCSS.GCC,*archs *sysroot *minver ?extra)" \
+                               -Dc_link_args="-L$(call fn.ABSOLUTE,$(CONTRIB.build/)lib) $(call fn.ARGS,DVDCSS.GCC,*archs *sysroot *minver ?extra.exe)" \
+                               -Denable_docs=false -Denable_examples=false \
+                               -Dpkg_config_path=$(call fn.ABSOLUTE,$(CONTRIB.build/)lib/pkgconfig)
+DVDCSS.CONFIGURE.env         =
+
+ifeq (1-mingw,$(HOST.cross)-$(HOST.system))
+    DVDCSS.CONFIGURE.extra += --cross-file=$(call fn.ABSOLUTE,$(DVDCSS.EXTRACT.dir/))package/crossfiles/$(HOST.machine)-w64-mingw32.meson
+endif
+
+DVDCSS.BUILD.make       = $(NINJA.exe)
+DVDCSS.BUILD.extra      = -v
+DVDCSS.INSTALL.make     = $(NINJA.exe)
+DVDCSS.CLEAN.make       = $(NINJA.exe)
+DVDCSS.UNINSTALL.make   = $(NINJA.exe)
