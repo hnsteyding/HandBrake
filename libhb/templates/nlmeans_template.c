@@ -50,7 +50,7 @@ static void FUNC(nlmeans_deborder)(const BorderedPlane *src,
 {
     pixel *dst = in_dst;
     const int bw = src->w + 2 * src->border;
-    pixel *image = src->mem + src->border + bw * src->border;
+    pixel *image = ((pixel *)src->mem) + src->border + bw * src->border;
 
     int width = w;
     if (src->w < width)
