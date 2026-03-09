@@ -2000,7 +2000,7 @@ namespace HandBrakeWPF.ViewModels
                 if (item.GetType() == typeof(DriveInformation))
                 {
                     string path = ((DriveInformation)item).RootDirectory;
-                    string videoDir = Path.Combine(path, "VIDEO_TS");
+                    string videoDir = Path.Combine(path, "*");
 
                     List<string> scanPath = new List<string> { Directory.Exists(videoDir) ? videoDir : path };
 
@@ -2012,7 +2012,7 @@ namespace HandBrakeWPF.ViewModels
                     if (driveInfo != null)
                     {
                         string path = driveInfo.RootDirectory;
-                        string videoDir = Path.Combine(driveInfo.RootDirectory, "VIDEO_TS");
+                        string videoDir = Path.Combine(driveInfo.RootDirectory, "*");
 
                         List<string> scanPath = new List<string> { Directory.Exists(videoDir) ? videoDir : path };
 
