@@ -49,6 +49,7 @@
 #define LAPSHARP_DEFAULT_PRESET      "medium"
 #define UNSHARP_DEFAULT_PRESET       "medium"
 #define CHROMA_SMOOTH_DEFAULT_PRESET "medium"
+#define BM3D_DEFAULT_PRESET          "default"
 #define NLMEANS_DEFAULT_PRESET       "medium"
 #define YADIF_DEFAULT_PRESET         "default"
 #define BWDIF_DEFAULT_PRESET         "default"
@@ -58,6 +59,7 @@
 #define HQDN3D_DEFAULT_PRESET        "medium"
 #define ROTATE_DEFAULT               "angle=180:hflip=0"
 #define DEBLOCK_DEFAULT_PRESET       "medium"
+#define DEBAND_DEFAULT_PRESET        "default"
 #define COLORSPACE_DEFAULT_PRESET    "bt709"
 #define HDR_DYNAMIC_METADATA_DEFAULT_PRESET "all"
 #define AUDIO_AUTONAMING_BEHAVIOUR_DEFAULT_PRESET "unnamed"
@@ -92,6 +94,9 @@ static int     deblock_disable     = 0;
 static int     deblock_custom      = 0;
 static char *  deblock             = NULL;
 static char *  deblock_tune        = NULL;
+static int     deband_disable      = 0;
+static int     deband_custom       = 0;
+static char *  deband              = NULL;
 static int     hqdn3d_disable      = 0;
 static int     hqdn3d_custom       = 0;
 static char *  hqdn3d              = NULL;
@@ -99,6 +104,9 @@ static int     nlmeans_disable     = 0;
 static int     nlmeans_custom      = 0;
 static char *  nlmeans             = NULL;
 static char *  nlmeans_tune        = NULL;
+static int     bm3d_disable        = 0;
+static int     bm3d_custom         = 0;
+static char *  bm3d                = NULL;
 static int     chroma_smooth_disable = 0;
 static int     chroma_smooth_custom  = 0;
 static char *  chroma_smooth         = NULL;
@@ -666,6 +674,8 @@ cleanup:
     free(unsharp_tune);
     free(lapsharp);
     free(lapsharp_tune);
+    free(bm3d);
+    free(deband);
     free(preset_export_name);
     free(preset_export_desc);
     free(preset_export_file);
@@ -1234,6 +1244,9 @@ static void showFilterDefault(FILE* const out, int filter_id)
         case HB_FILTER_CHROMA_SMOOTH:
             preset = CHROMA_SMOOTH_DEFAULT_PRESET;
             break;
+        case HB_FILTER_BM3D:
+            preset = BM3D_DEFAULT_PRESET;
+            break;
         case HB_FILTER_NLMEANS:
             preset = NLMEANS_DEFAULT_PRESET;
             break;
@@ -1258,6 +1271,9 @@ static void showFilterDefault(FILE* const out, int filter_id)
         case HB_FILTER_DEBLOCK:
             preset = DEBLOCK_DEFAULT_PRESET;
             break;
+        case HB_FILTER_DEBAND:
+            preset = DEBAND_DEFAULT_PRESET;
+            break;
         default:
             break;
     }
@@ -1265,6 +1281,7 @@ static void showFilterDefault(FILE* const out, int filter_id)
     {
         case HB_FILTER_YADIF:
         case HB_FILTER_BWDIF:
+        case HB_FILTER_BM3D:
         case HB_FILTER_NLMEANS:
         case HB_FILTER_CHROMA_SMOOTH:
         case HB_FILTER_COLORSPACE:
@@ -1275,6 +1292,7 @@ static void showFilterDefault(FILE* const out, int filter_id)
         case HB_FILTER_HQDN3D:
         case HB_FILTER_COMB_DETECT:
         case HB_FILTER_DEBLOCK:
+        case HB_FILTER_DEBAND:
         {
             hb_dict_t * settings;
             settings = hb_generate_filter_settings(filter_id, preset,
@@ -1811,6 +1829,12 @@ static void ShowHelp(void)
     fprintf( out,
 "   --no-hqdn3d             Disable preset hqdn3d filter\n"
 "   --denoise[=string]      Legacy alias for '--hqdn3d'\n"
+"   --bm3d[=string]         Denoise video with BM3D advanced denoising\n");
+    showFilterPresets(out, HB_FILTER_BM3D);
+    showFilterKeys(out, HB_FILTER_BM3D);
+    showFilterDefault(out, HB_FILTER_BM3D);
+    fprintf( out,
+"   --no-bm3d               Disable preset BM3D filter\n"
 "   --nlmeans[=string]      Denoise video with NLMeans filter\n");
     showFilterPresets(out, HB_FILTER_NLMEANS);
     showFilterKeys(out, HB_FILTER_NLMEANS);
@@ -1872,6 +1896,13 @@ static void ShowHelp(void)
     fprintf( out,
 "                           Applies to deblock presets only (does not affect\n"
 "                           custom settings)\n"
+"   --deband[=string]       Remove banding artifacts (common in anime,\n"
+"                           gradients, dark scenes)\n");
+    showFilterPresets(out, HB_FILTER_DEBAND);
+    showFilterKeys(out, HB_FILTER_DEBAND);
+    showFilterDefault(out, HB_FILTER_DEBAND);
+    fprintf( out,
+"   --no-deband             Disable preset deband filter\n"
 "   --rotate[=string]       Rotate image or flip its axes.\n"
 "                           angle rotates clockwise, can be one of:\n"
 "                               0, 90, 180, 270\n"
@@ -2276,6 +2307,8 @@ static int ParseOptions( int argc, char ** argv )
     #define HDR_DYNAMIC_METADATA          334
     #define AUDIO_AUTONAMING_BEHAVIOUR    335
     #define COLOR_RANGE                   336
+    #define FILTER_BM3D                   337
+    #define FILTER_DEBAND                 338
 
     for( ;; )
     {
@@ -2365,9 +2398,13 @@ static int ParseOptions( int argc, char ** argv )
             { "deblock",     optional_argument, NULL,    '7' },
             { "no-deblock",  no_argument,       &deblock_disable,     1 },
             { "deblock-tune",required_argument, NULL,    FILTER_DEBLOCK_TUNE },
+            { "deband",      optional_argument, NULL,    FILTER_DEBAND },
+            { "no-deband",   no_argument,       &deband_disable,  1 },
             { "denoise",     optional_argument, NULL,    '8' },
             { "hqdn3d",      optional_argument, NULL,    '8' },
             { "no-hqdn3d",   no_argument,       &hqdn3d_disable,      1 },
+            { "bm3d",        optional_argument, NULL,    FILTER_BM3D },
+            { "no-bm3d",     no_argument,       &bm3d_disable,        1 },
             { "nlmeans",     optional_argument, NULL,    FILTER_NLMEANS },
             { "no-nlmeans",  no_argument,       &nlmeans_disable,     1 },
             { "nlmeans-tune",required_argument, NULL,    FILTER_NLMEANS_TUNE },
@@ -2848,6 +2885,28 @@ static int ParseOptions( int argc, char ** argv )
                 else
                 {
                     hqdn3d = strdup(HQDN3D_DEFAULT_PRESET);
+                }
+                break;
+            case FILTER_DEBAND:
+                free(deband);
+                if (optarg != NULL)
+                {
+                    deband = strdup(optarg);
+                }
+                else
+                {
+                    deband = strdup(DEBAND_DEFAULT_PRESET);
+                }
+                break;
+            case FILTER_BM3D:
+                free(bm3d);
+                if (optarg != NULL)
+                {
+                    bm3d = strdup(optarg);
+                }
+                else
+                {
+                    bm3d = strdup(BM3D_DEFAULT_PRESET);
                 }
                 break;
             case FILTER_NLMEANS:
@@ -3376,6 +3435,32 @@ static int ParseOptions( int argc, char ** argv )
         }
     }
 
+    if (deband != NULL)
+    {
+        if (deband_disable)
+        {
+            fprintf(stderr,
+                    "Incompatible options --deband and --no-deband\n");
+            return -1;
+        }
+        if (!hb_validate_filter_preset(HB_FILTER_DEBAND, deband,
+                                       NULL, NULL))
+        {
+            // Nothing to do, but must validate preset before
+            // attempting to validate custom settings to prevent potential
+            // false positive
+        }
+        else if (!hb_validate_filter_string(HB_FILTER_DEBAND, deband))
+        {
+            deband_custom = 1;
+        }
+        else
+        {
+            fprintf(stderr, "Invalid deband option %s\n", deband);
+            return -1;
+        }
+    }
+
     if (detelecine != NULL)
     {
         if (detelecine_disable)
@@ -3566,6 +3651,32 @@ static int ParseOptions( int argc, char ** argv )
         else
         {
             fprintf(stderr, "Invalid hqdn3d option %s\n", hqdn3d);
+            return -1;
+        }
+    }
+
+    if (bm3d != NULL)
+    {
+        if (bm3d_disable)
+        {
+            fprintf(stderr,
+                    "Incompatible options --bm3d and --no-bm3d\n");
+            return -1;
+        }
+        if (!hb_validate_filter_preset(HB_FILTER_BM3D, bm3d,
+                                       NULL, NULL))
+        {
+            // Nothing to do, but must validate preset before
+            // attempting to validate custom settings to prevent potential
+            // false positive
+        }
+        else if (!hb_validate_filter_string(HB_FILTER_BM3D, bm3d))
+        {
+            bm3d_custom = 1;
+        }
+        else
+        {
+            fprintf(stderr, "Invalid bm3d option %s\n", bm3d);
             return -1;
         }
     }
@@ -4744,6 +4855,27 @@ static hb_dict_t * PreparePreset(const char *preset_name)
                         hb_value_string(hqdn3d));
         }
     }
+    if (bm3d_disable && !strcasecmp(s, "bm3d"))
+    {
+        hb_dict_set(preset, "PictureDenoiseFilter", hb_value_string("off"));
+    }
+    if (bm3d != NULL)
+    {
+        hb_dict_set(preset, "PictureDenoiseFilter", hb_value_string("bm3d"));
+        if (!bm3d_custom)
+        {
+            hb_dict_set(preset, "PictureDenoisePreset",
+                        hb_value_string(bm3d));
+        }
+        else
+        {
+            hb_dict_set(preset, "PictureDenoisePreset",
+                        hb_value_string("custom"));
+            hb_dict_set(preset, "PictureDenoiseCustom",
+                        hb_value_string(bm3d));
+        }
+    }
+
     if (nlmeans_disable && !strcasecmp(s, "nlmeans"))
     {
         hb_dict_set(preset, "PictureDenoiseFilter", hb_value_string("off"));
@@ -4863,6 +4995,22 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     if (deblock_disable)
     {
         hb_dict_set_string(preset, "PictureDeblockPreset", "off");
+    }
+    if (deband != NULL)
+    {
+        if (!deband_custom)
+        {
+            hb_dict_set_string(preset, "PictureDebandPreset", deband);
+        }
+        else
+        {
+            hb_dict_set_string(preset, "PictureDebandPreset", "custom");
+            hb_dict_set_string(preset, "PictureDebandCustom", deband);
+        }
+    }
+    if (deband_disable)
+    {
+        hb_dict_set_string(preset, "PictureDebandPreset", "off");
     }
     if (rotate != NULL)
     {
